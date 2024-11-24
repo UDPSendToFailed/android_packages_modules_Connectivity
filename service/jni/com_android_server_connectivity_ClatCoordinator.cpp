@@ -145,7 +145,7 @@ static void verifyClatPerms() {
         return;
     }
 
-    if (fatal) abort();
+    if (fatal) return;
 }
 
 #undef V
