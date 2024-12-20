@@ -271,8 +271,8 @@ public class BpfNetMapsUtils {
             return BLOCKED_REASON_NONE;
         }
 
-        final long uidRuleConfig = 0;
-        final long uidMatch = 0;
+        final long uidRuleConfig;
+        final long uidMatch;
         try {
             uidRuleConfig = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY).val;
             final UidOwnerValue value = uidOwnerMap.getValue(new Struct.S32(uid));
