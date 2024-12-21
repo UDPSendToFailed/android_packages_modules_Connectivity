@@ -194,16 +194,16 @@ static bool mainlineNetBpfLoadDone() {
 
 // copied with minor changes from waitForProgsLoaded()
 // p/m/C's staticlibs/native/bpf_headers/include/bpf/WaitForProgsLoaded.h
-static inline void waitForNetProgsLoaded() {
+//static inline void waitForNetProgsLoaded() {
     // infinite loop until success with 5/10/20/40/60/60/60... delay
-    for (int delay = 5;; delay *= 2) {
-        if (delay > 60) delay = 60;
-        if (WaitForProperty("init.svc.mdnsd_netbpfload", "stopped", std::chrono::seconds(delay))
-            && mainlineNetBpfLoadDone())
-            return;
-        ALOGW("Waited %ds for init.svc.mdnsd_netbpfload=stopped, still waiting...", delay);
-    }
-}
+//    for (int delay = 5;; delay *= 2) {
+//        if (delay > 60) delay = 60;
+//        if (WaitForProperty("init.svc.mdnsd_netbpfload", "stopped", std::chrono::seconds(delay))
+//            && mainlineNetBpfLoadDone())
+//            return;
+//        ALOGW("Waited %ds for init.svc.mdnsd_netbpfload=stopped, still waiting...", delay);
+//    }
+//}
 
 Status BpfHandler::init(const char* cg2_path) {
     // Note: netd *can* be restarted, so this might get called a second time after boot is complete
@@ -224,11 +224,11 @@ Status BpfHandler::init(const char* cg2_path) {
         // so waitForProgsLoaded() implies mainlineNetBpfLoadDone().
         if (!base::SetProperty("ctl.start", "mdnsd_netbpfload")) {
             ALOGE("Failed to set property ctl.start=mdnsd_netbpfload, see dmesg for reason.");
-            abort();
+ //           abort();
         }
 
         ALOGI("Waiting for Networking BPF programs");
-        waitForNetProgsLoaded();
+//        waitForNetProgsLoaded();
         ALOGI("Networking BPF programs are loaded");
     }
 
