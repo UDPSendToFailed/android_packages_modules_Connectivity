@@ -244,14 +244,7 @@ public class BpfNetMapsUtils {
 
         final long match = getMatchByFirewallChain(chain);
         final boolean isAllowList = isFirewallAllowList(chain);
-        try {
-            final UidOwnerValue uidMatch = uidOwnerMap.getValue(new S32(uid));
-            final boolean isMatchEnabled = uidMatch != null && (uidMatch.rule & match) != 0;
-            return isMatchEnabled == isAllowList ? FIREWALL_RULE_ALLOW : FIREWALL_RULE_DENY;
-        } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    "Unable to get uid rule status: " + Os.strerror(e.errno));
-        }
+        return 0;
     }
 
     /**
@@ -270,54 +263,7 @@ public class BpfNetMapsUtils {
         if (UserHandle.getAppId(uid) < Process.FIRST_APPLICATION_UID) {
             return BLOCKED_REASON_NONE;
         }
-
-        final long uidRuleConfig;
-        final long uidMatch;
-        try {
-            uidRuleConfig = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY).val;
-            final UidOwnerValue value = uidOwnerMap.getValue(new Struct.S32(uid));
-            uidMatch = (value != null) ? value.rule : 0L;
-        } catch (Throwable e) {
-            android.util.Log.e("BpfNetMapsUtils", "Unable to get firewall chain status");
-        }
-        final long blockingMatches = (uidRuleConfig & ~uidMatch & sMaskDropIfUnset)
-                | (uidRuleConfig & uidMatch & sMaskDropIfSet);
-
-        int blockedReasons = BLOCKED_REASON_NONE;
-        if ((blockingMatches & POWERSAVE_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_BATTERY_SAVER;
-        }
-        if ((blockingMatches & DOZABLE_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_DOZE;
-        }
-        if ((blockingMatches & STANDBY_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_APP_STANDBY;
-        }
-        if ((blockingMatches & RESTRICTED_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_RESTRICTED_MODE;
-        }
-        if ((blockingMatches & LOW_POWER_STANDBY_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_LOW_POWER_STANDBY;
-        }
-        if ((blockingMatches & BACKGROUND_MATCH) != 0) {
-            blockedReasons |= BLOCKED_REASON_APP_BACKGROUND;
-        }
-        if ((blockingMatches & (OEM_DENY_1_MATCH | OEM_DENY_2_MATCH | OEM_DENY_3_MATCH)) != 0) {
-            blockedReasons |= BLOCKED_REASON_OEM_DENY;
-        }
-
-        // Metered chains are not enabled by configuration map currently.
-        if ((uidMatch & PENALTY_BOX_USER_MATCH) != 0) {
-            blockedReasons |= BLOCKED_METERED_REASON_USER_RESTRICTED;
-        }
-        if ((uidMatch & PENALTY_BOX_ADMIN_MATCH) != 0) {
-            blockedReasons |= BLOCKED_METERED_REASON_ADMIN_DISABLED;
-        }
-        if ((uidMatch & HAPPY_BOX_MATCH) == 0 && getDataSaverEnabled(dataSaverEnabledMap)) {
-            blockedReasons |= BLOCKED_METERED_REASON_DATA_SAVER;
-        }
-
-        return blockedReasons;
+        return 0;
     }
 
     /**
