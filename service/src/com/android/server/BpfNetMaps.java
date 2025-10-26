@@ -1070,6 +1070,9 @@ public class BpfNetMaps {
     @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
     public void removeUidFromLocalNetBlockMap(final int uid) {
         throwIfPre25Q2("removeUidFromLocalNetBlockMap is not available on pre-B devices");
+
+        if (sLocalNetBlockedUidMap == null) return;
+
         try {
             sLocalNetBlockedUidMap.deleteEntry(new U32(uid));
         } catch (ErrnoException e) {
