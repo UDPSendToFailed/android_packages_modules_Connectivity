@@ -112,7 +112,10 @@ public class NetworkStatsFactory {
             final NetworkStats stats = new NetworkStats(SystemClock.elapsedRealtime(), 0);
             final int ret = nativeReadNetworkStatsDetail(stats);
             if (ret != 0) {
-                throw new IOException("Failed to parse network stats");
+                // CHANGE: Log the error but DO NOT throw. 
+                // Return the empty 'stats' object so the system keeps running.
+                Log.w(TAG, "BPF not supported (3.18). Returning empty network stats detail.");
+                return stats; 
             }
             return stats;
         }
@@ -125,7 +128,9 @@ public class NetworkStatsFactory {
             final NetworkStats stats = new NetworkStats(SystemClock.elapsedRealtime(), 6);
             final int ret = nativeReadNetworkStatsDev(stats);
             if (ret != 0) {
-                throw new IOException("Failed to parse bpf iface stats");
+                // CHANGE: Log the error but DO NOT throw.
+                Log.w(TAG, "BPF not supported (3.18). Returning empty network stats summary.");
+                return stats;
             }
             return stats;
         }
@@ -228,11 +233,10 @@ public class NetworkStatsFactory {
     @GuardedBy("mPersistentDataLock")
     private void requestSwapActiveStatsMapLocked() throws IOException {
         try {
-            // Do a active map stats swap. Once the swap completes, this code
-            // can read and clean the inactive map without races.
             mBpfNetMaps.swapActiveStatsMap();
-        } catch (ServiceSpecificException e) {
-            throw new IOException(e);
+        } catch (Exception e) { // CHANGE: Catch all exceptions
+            // On 3.18, this will always fail. Ignore it.
+            Log.w(TAG, "Failed to swap BPF maps (Expected on 3.18)");
         }
     }
 

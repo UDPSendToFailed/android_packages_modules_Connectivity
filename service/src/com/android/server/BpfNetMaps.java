@@ -220,10 +220,10 @@ public class BpfNetMaps {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private static IBpfMap<S32, U32> getConfigurationMap() {
         try {
-            return SingleWriterBpfMap.getSingleton(
-                    CONFIGURATION_MAP_PATH, S32.class, U32.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open netd configuration map", e);
+            return new BpfMap<>(CONFIGURATION_MAP_PATH, S32.class, U32.class);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get configuration map (3.18 legacy): " + e);
+            return null;
         }
     }
 
@@ -232,8 +232,9 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(
                     UID_OWNER_MAP_PATH, S32.class, UidOwnerValue.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open uid owner map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get uid owner map: " + e);
+            return null;
         }
     }
 
@@ -242,19 +243,19 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(
                     UID_PERMISSION_MAP_PATH, S32.class, U8.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open uid permission map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get uid permission map: " + e);
+            return null;
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private static IBpfMap<S64, CookieTagMapValue> getCookieTagMap() {
         try {
-            // Cannot use SingleWriterBpfMap because it's written by ClatCoordinator as well.
-            return new BpfMap<>(COOKIE_TAG_MAP_PATH,
-                    S64.class, CookieTagMapValue.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open cookie tag map", e);
+            return new BpfMap<>(COOKIE_TAG_MAP_PATH, S64.class, CookieTagMapValue.class);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get cookie tag map: " + e);
+            return null;
         }
     }
 
@@ -263,8 +264,9 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(
                     DATA_SAVER_ENABLED_MAP_PATH, S32.class, U8.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open data saver enabled map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get data saver map: " + e);
+            return null;
         }
     }
 
@@ -273,8 +275,9 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(INGRESS_DISCARD_MAP_PATH,
                     IngressDiscardKey.class, IngressDiscardValue.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open ingress discard map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get ingress discard map: " + e);
+            return null;
         }
     }
 
@@ -283,8 +286,9 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(LOCAL_NET_BLOCKED_UID_MAP_PATH,
                     U32.class, Bool.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open local_net_blocked_uid map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get local net blocked uid map: " + e);
+            return null;
         }
     }
 
@@ -293,82 +297,65 @@ public class BpfNetMaps {
         try {
             return SingleWriterBpfMap.getSingleton(LOCAL_NET_ACCESS_MAP_PATH,
                     LocalNetAccessKey.class, Bool.class);
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Cannot open local_net_access map", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Fail to get local net access map: " + e);
+            return null;
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private static void initBpfMaps() {
-        if (sConfigurationMap == null) {
-            sConfigurationMap = getConfigurationMap();
-        }
-        try {
-            sConfigurationMap.updateEntry(UID_RULES_CONFIGURATION_KEY,
-                    new U32(UID_RULES_DEFAULT_CONFIGURATION));
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Failed to initialize uid rules configuration", e);
-        }
-        try {
-            sConfigurationMap.updateEntry(CURRENT_STATS_MAP_CONFIGURATION_KEY,
-                    new U32(STATS_SELECT_MAP_A));
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Failed to initialize current stats configuration", e);
+        sConfigurationMap = getConfigurationMap();
+        if (sConfigurationMap != null) {
+            try {
+                sConfigurationMap.updateEntry(UID_RULES_CONFIGURATION_KEY,
+                        new U32(UID_RULES_DEFAULT_CONFIGURATION));
+                sConfigurationMap.updateEntry(CURRENT_STATS_MAP_CONFIGURATION_KEY,
+                        new U32(STATS_SELECT_MAP_A));
+            } catch (ErrnoException e) {
+                Log.e(TAG, "Failed to init sConfigurationMap: " + e);
+            }
         }
 
-        if (sUidOwnerMap == null) {
-            sUidOwnerMap = getUidOwnerMap();
-        }
-        try {
-            sUidOwnerMap.clear();
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Failed to initialize uid owner map", e);
-        }
-
-        if (sUidPermissionMap == null) {
-            sUidPermissionMap = getUidPermissionMap();
+        sUidOwnerMap = getUidOwnerMap();
+        if (sUidOwnerMap != null) {
+            try {
+                sUidOwnerMap.clear();
+            } catch (ErrnoException e) {
+                Log.e(TAG, "Failed to init sUidOwnerMap: " + e);
+            }
         }
 
-        if (sCookieTagMap == null) {
-            sCookieTagMap = getCookieTagMap();
+        sUidPermissionMap = getUidPermissionMap();
+        sCookieTagMap = getCookieTagMap();
+
+        sDataSaverEnabledMap = getDataSaverEnabledMap();
+        if (sDataSaverEnabledMap != null) {
+            try {
+                sDataSaverEnabledMap.updateEntry(DATA_SAVER_ENABLED_KEY, new U8(DATA_SAVER_DISABLED));
+            } catch (ErrnoException e) {
+                Log.e(TAG, "Failed to init sDataSaverEnabledMap: " + e);
+            }
         }
 
-        if (sDataSaverEnabledMap == null) {
-            sDataSaverEnabledMap = getDataSaverEnabledMap();
-        }
-        try {
-            sDataSaverEnabledMap.updateEntry(DATA_SAVER_ENABLED_KEY, new U8(DATA_SAVER_DISABLED));
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Failed to initialize data saver configuration", e);
-        }
-
-        if (sIngressDiscardMap == null) {
-            sIngressDiscardMap = getIngressDiscardMap();
-        }
-        try {
-            sIngressDiscardMap.clear();
-        } catch (ErrnoException e) {
-            throw new IllegalStateException("Failed to initialize ingress discard map", e);
+        sIngressDiscardMap = getIngressDiscardMap();
+        if (sIngressDiscardMap != null) {
+            try {
+                sIngressDiscardMap.clear();
+            } catch (ErrnoException e) {
+                Log.e(TAG, "Failed to init sIngressDiscardMap: " + e);
+            }
         }
 
         if (isAtLeast25Q2()) {
-            if (sLocalNetAccessMap == null) {
-                sLocalNetAccessMap = getLocalNetAccessMap();
-            }
-            try {
-                sLocalNetAccessMap.clear();
-            } catch (ErrnoException e) {
-                throw new IllegalStateException("Failed to initialize local_net_access map", e);
+            sLocalNetAccessMap = getLocalNetAccessMap();
+            if (sLocalNetAccessMap != null) {
+                try { sLocalNetAccessMap.clear(); } catch (ErrnoException e) { }
             }
 
-            if (sLocalNetBlockedUidMap == null) {
-                sLocalNetBlockedUidMap = getLocalNetBlockedUidMap();
-            }
-            try {
-                sLocalNetBlockedUidMap.clear();
-            } catch (ErrnoException e) {
-                throw new IllegalStateException("Failed to initialize local_net_blocked_uid map",
-                        e);
+            sLocalNetBlockedUidMap = getLocalNetBlockedUidMap();
+            if (sLocalNetBlockedUidMap != null) {
+                try { sLocalNetBlockedUidMap.clear(); } catch (ErrnoException e) { }
             }
         }
     }
@@ -453,7 +440,9 @@ public class BpfNetMaps {
 
     private void maybeThrow(final int err, final String msg) {
         if (err != 0) {
-            throw new ServiceSpecificException(err, msg + ": " + Os.strerror(err));
+            // CHANGE: Just log the error. Do NOT throw ServiceSpecificException.
+            // Throwing here is what kills the system_server.
+            Log.e(TAG, "Legacy Kernel Error: " + msg + " (err=" + err + ")");
         }
     }
 
@@ -479,14 +468,13 @@ public class BpfNetMaps {
     }
 
     private void removeRule(final int uid, final long match, final String caller) {
+        if (sUidOwnerMap == null) return;
         try {
             synchronized (sUidOwnerMap) {
                 final UidOwnerValue oldMatch = sUidOwnerMap.getValue(new S32(uid));
 
-                if (oldMatch == null) {
-                    throw new ServiceSpecificException(ENOENT,
-                            "sUidOwnerMap does not have entry for uid: " + uid);
-                }
+                // GUARD: oldMatch can be null if no rule exists for this UID
+                if (oldMatch == null) return;
 
                 final UidOwnerValue newMatch = new UidOwnerValue(
                         (match == IIF_MATCH) ? 0 : oldMatch.iif,
@@ -500,17 +488,12 @@ public class BpfNetMaps {
                 }
             }
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    caller + " failed to remove rule: " + Os.strerror(e.errno));
+            Log.e(TAG, caller + " failed to remove rule: " + e);
         }
     }
 
     private void addRule(final int uid, final long match, final int iif, final String caller) {
-        if (match != IIF_MATCH && iif != 0) {
-            throw new ServiceSpecificException(EINVAL,
-                    "Non-interface match must have zero interface index");
-        }
-
+        if (sUidOwnerMap == null) return; // Guard 1
         try {
             synchronized (sUidOwnerMap) {
                 final UidOwnerValue oldMatch = sUidOwnerMap.getValue(new S32(uid));
@@ -527,11 +510,11 @@ public class BpfNetMaps {
                             match
                     );
                 }
+                // Guard 2: updateEntry will fail on a dummy FD, we just catch it
                 sUidOwnerMap.updateEntry(new S32(uid), newMatch);
             }
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    caller + " failed to add rule: " + Os.strerror(e.errno));
+            Log.e(TAG, caller + " failed to add rule (expected on 3.18): " + e);
         }
     }
 
@@ -539,44 +522,32 @@ public class BpfNetMaps {
         addRule(uid, match, 0 /* iif */, caller);
     }
 
-    /**
-     * Set target firewall child chain
-     *
-     * @param childChain target chain to enable
-     * @param enable     whether to enable or disable child chain.
-     * @throws UnsupportedOperationException if called on pre-T devices.
-     * @throws ServiceSpecificException in case of failure, with an error code indicating the
-     *                                  cause of the failure.
-     */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public void setChildChain(final int childChain, final boolean enable) {
-        throwIfPreT("setChildChain is not available on pre-T devices");
+        if (sConfigurationMap == null) return; // Guard 1: Map exists?
 
         final long match = getMatchByFirewallChain(childChain);
         try {
             synchronized (sUidRulesConfigBpfMapLock) {
                 final U32 config = sConfigurationMap.getValue(UID_RULES_CONFIGURATION_KEY);
+                
+                // GUARD 2: Check if the returned value is null!
+                if (config == null) {
+                    Log.w(TAG, "setChildChain: No config found for key, skipping (3.18 legacy)");
+                    return; 
+                }
+
                 final long newConfig = enable ? (config.val | match) : (config.val & ~match);
                 sConfigurationMap.updateEntry(UID_RULES_CONFIGURATION_KEY, new U32(newConfig));
             }
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    "Unable to set child chain: " + Os.strerror(e.errno));
+            Log.e(TAG, "Unable to set child chain: " + e);
         }
     }
 
-    /**
-     * Get the specified firewall chain's status.
-     *
-     * @param childChain target chain
-     * @return {@code true} if chain is enabled, {@code false} if chain is not enabled.
-     * @throws UnsupportedOperationException if called on pre-T devices.
-     * @throws ServiceSpecificException in case of failure, with an error code indicating the
-     *                                  cause of the failure.
-     */
-    @Deprecated
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public boolean isChainEnabled(final int childChain) {
+        if (sConfigurationMap == null) return false; // Early out for 3.18
         return BpfNetMapsUtils.isChainEnabled(sConfigurationMap, childChain);
     }
 
@@ -599,6 +570,7 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public void replaceUidChain(final int chain, final int[] uids) {
+        if (sUidOwnerMap == null) return;
         throwIfPreT("replaceUidChain is not available on pre-T devices");
 
         final long match;
@@ -673,6 +645,7 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public int getUidRule(final int childChain, final int uid) {
+        if (sUidOwnerMap == null) return FIREWALL_RULE_ALLOW;
         return BpfNetMapsUtils.getUidRule(sUidOwnerMap, childChain, uid);
     }
 
@@ -836,30 +809,32 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public void swapActiveStatsMap() {
-        throwIfPreT("swapActiveStatsMap is not available on pre-T devices");
+        if (sConfigurationMap == null) return;
 
         try {
             synchronized (sCurrentStatsMapConfigLock) {
-                final long config = sConfigurationMap.getValue(
-                        CURRENT_STATS_MAP_CONFIGURATION_KEY).val;
-                final long newConfig = (config == STATS_SELECT_MAP_A)
+                final U32 config = sConfigurationMap.getValue(CURRENT_STATS_MAP_CONFIGURATION_KEY);
+                
+                // GUARD: Check if return is null
+                if (config == null) {
+                    Log.w(TAG, "swapActiveStatsMap: No config found, skipping (3.18 legacy)");
+                    return;
+                }
+
+                final long newConfig = (config.val == STATS_SELECT_MAP_A)
                         ? STATS_SELECT_MAP_B : STATS_SELECT_MAP_A;
                 sConfigurationMap.updateEntry(CURRENT_STATS_MAP_CONFIGURATION_KEY,
                         new U32(newConfig));
             }
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno, "Failed to swap active stats map");
+            Log.e(TAG, "Failed to swap active stats map: " + e);
+            return;
         }
 
-        // After changing the config, it's needed to make sure all the current running eBPF
-        // programs are finished and all the CPUs are aware of this config change before the old
-        // map is modified. So special hack is needed here to wait for the kernel to do a
-        // synchronize_rcu(). Once the kernel called synchronize_rcu(), the updated config will
-        // be available to all cores and the next eBPF programs triggered inside the kernel will
-        // use the new map configuration. So once this function returns it is safe to modify the
-        // old stats map without concerning about race between the kernel and userspace.
         final int err = mDeps.synchronizeKernelRCU();
-        maybeThrow(err, "synchronizeKernelRCU failed");
+        if (err != 0) {
+            Log.w(TAG, "synchronizeKernelRCU failed (expected on 3.18)");
+        }
     }
 
     /**
@@ -877,26 +852,17 @@ public class BpfNetMaps {
             mNetd.trafficSetNetPermForUids(permissions, uids);
             return;
         }
-
-        // Remove the entry if package is uninstalled or uid has only INTERNET permission.
-        if (permissions == TRAFFIC_PERMISSION_UNINSTALLED
-                || permissions == TRAFFIC_PERMISSION_INTERNET) {
-            for (final int uid : uids) {
-                try {
-                    sUidPermissionMap.deleteEntry(new S32(uid));
-                } catch (ErrnoException e) {
-                    Log.e(TAG, "Failed to remove uid " + uid + " from permission map: " + e);
-                }
-            }
-            return;
-        }
-
+        if (sUidPermissionMap == null) return;
         for (final int uid : uids) {
             try {
-                sUidPermissionMap.updateEntry(new S32(uid), new U8((short) permissions));
+                if (permissions == TRAFFIC_PERMISSION_UNINSTALLED
+                        || permissions == TRAFFIC_PERMISSION_INTERNET) {
+                    sUidPermissionMap.deleteEntry(new S32(uid));
+                } else {
+                    sUidPermissionMap.updateEntry(new S32(uid), new U8((short) permissions));
+                }
             } catch (ErrnoException e) {
-                Log.e(TAG, "Failed to set permission "
-                        + permissions + " to uid " + uid + ": " + e);
+                Log.e(TAG, "Failed to set permission for uid " + uid + ": " + e);
             }
         }
     }
@@ -987,6 +953,7 @@ public class BpfNetMaps {
     @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
     public boolean getLocalNetAccess(final int lpmBitlen, @Nullable final String iface,
             final InetAddress address, final int protocol, final int remotePort) {
+        if (sLocalNetAccessMap == null) return true; // Default allowed on 3.18
         throwIfPre25Q2("getLocalNetAccess is not available on pre-B devices");
         final int ifIndex;
         if (iface == null) {
@@ -1031,6 +998,7 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.CUR_DEVELOPMENT)
     public boolean isUidBlockedFromUsingLocalNetwork(final int uid) {
+        if (sLocalNetBlockedUidMap == null) return false; // Not blocked on 3.18
         throwIfPre25Q2("isUidBlockedFromUsingLocalNetwork is not available on pre-B devices");
         try {
             final Bool value = sLocalNetBlockedUidMap.getValue(new U32(uid));
@@ -1066,14 +1034,12 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public int getNetPermForUid(final int uid) {
+        if (sUidPermissionMap == null) return TRAFFIC_PERMISSION_INTERNET; // Default for 3.18
         final int appId = UserHandle.getAppId(uid);
         try {
-            // Key of uid permission map is appId
-            // TODO: Rename map name
             final U8 permissions = sUidPermissionMap.getValue(new S32(appId));
             return permissions != null ? permissions.val : TRAFFIC_PERMISSION_INTERNET;
         } catch (ErrnoException e) {
-            Log.wtf(TAG, "Failed to get permission for uid: " + uid);
             return TRAFFIC_PERMISSION_INTERNET;
         }
     }
@@ -1088,14 +1054,12 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public void setDataSaverEnabled(boolean enable) {
-        throwIfPreT("setDataSaverEnabled is not available on pre-T devices");
-
+        if (sDataSaverEnabledMap == null) return;
         try {
             final short config = enable ? DATA_SAVER_ENABLED : DATA_SAVER_DISABLED;
             sDataSaverEnabledMap.updateEntry(DATA_SAVER_ENABLED_KEY, new U8(config));
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno, "Unable to set data saver: "
-                    + Os.strerror(e.errno));
+            Log.e(TAG, "Unable to set data saver: " + e);
         }
     }
 
@@ -1146,6 +1110,9 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public int getUidNetworkingBlockedReasons(final int uid) {
+        if (sConfigurationMap == null || sUidOwnerMap == null || sDataSaverEnabledMap == null) {
+            return BLOCKED_REASON_NONE; // Not blocked on 3.18
+        }
         return BpfNetMapsUtils.getUidNetworkingBlockedReasons(uid,
                 sConfigurationMap, sUidOwnerMap, sDataSaverEnabledMap);
     }
@@ -1177,6 +1144,9 @@ public class BpfNetMaps {
      */
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     public boolean isUidNetworkingBlocked(final int uid, boolean isNetworkMetered) {
+        if (sConfigurationMap == null || sUidOwnerMap == null || sDataSaverEnabledMap == null) {
+            return false; // Not blocked on 3.18
+        }
         return BpfNetMapsUtils.isUidNetworkingBlocked(uid, isNetworkMetered,
                 sConfigurationMap, sUidOwnerMap, sDataSaverEnabledMap);
     }

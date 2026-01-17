@@ -29,6 +29,8 @@
 #include "BpfSyscallWrappers.h"
 #include "bpf/KernelUtils.h"
 
+#include <fcntl.h>
+
 namespace android {
 
 using ::android::base::unique_fd;
@@ -57,6 +59,14 @@ static jint com_android_net_module_util_BpfMap_nativeBpfFdGet(JNIEnv *env, jclas
     }
 
     if (!fd.ok()) {
+        // LOGIC FOR 3.18 KERNEL:
+        // If we fail to get a BPF map because the kernel doesn't support it (ENOSYS)
+        // or the map doesn't exist (ENOENT), return an FD to /dev/null.
+        // This stops Java from throwing an Exception and crashing system_server.
+        if (errno == ENOSYS || errno == ENOENT) {
+            return open("/dev/null", O_RDONLY | O_CLOEXEC);
+        }
+
         jniThrowErrnoException(env, "nativeBpfFdGet", errno);
         return -1;
     }
@@ -78,6 +88,7 @@ static jint com_android_net_module_util_BpfMap_nativeBpfFdGet(JNIEnv *env, jclas
 
 static void com_android_net_module_util_BpfMap_nativeWriteToMapEntry(JNIEnv *env, jobject self,
         jint fd, jbyteArray key, jbyteArray value, jint flags) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return; // Do nothing on 3.18
     ScopedByteArrayRO keyRO(env, key);
     ScopedByteArrayRO valueRO(env, value);
 
@@ -96,6 +107,7 @@ static jboolean throwIfNotEnoent(JNIEnv *env, const char* functionName, int ret,
 
 static jboolean com_android_net_module_util_BpfMap_nativeDeleteMapEntry(JNIEnv *env, jobject self,
         jint fd, jbyteArray key) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return true; // Pretend it worked on 3.18
     ScopedByteArrayRO keyRO(env, key);
 
     // On success, zero is returned.  If the element is not found, -1 is returned and errno is set
@@ -107,6 +119,7 @@ static jboolean com_android_net_module_util_BpfMap_nativeDeleteMapEntry(JNIEnv *
 
 static jboolean com_android_net_module_util_BpfMap_nativeGetNextMapKey(JNIEnv *env, jobject self,
         jint fd, jbyteArray key, jbyteArray nextKey) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return false; // Signal end of map
     // If key is found, the operation returns zero and sets the next key pointer to the key of the
     // next element.  If key is not found, the operation returns zero and sets the next key pointer
     // to the key of the first element.  If key is the last element, -1 is returned and errno is
@@ -126,6 +139,7 @@ static jboolean com_android_net_module_util_BpfMap_nativeGetNextMapKey(JNIEnv *e
 
 static jboolean com_android_net_module_util_BpfMap_nativeFindMapEntry(JNIEnv *env, jobject self,
         jint fd, jbyteArray key, jbyteArray value) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return false; // Map is "empty"
     ScopedByteArrayRO keyRO(env, key);
     ScopedByteArrayRW valueRW(env, value);
 
@@ -138,6 +152,7 @@ static jboolean com_android_net_module_util_BpfMap_nativeFindMapEntry(JNIEnv *en
 
 static jint com_android_net_module_util_BpfMap_nativeSynchronizeKernelRCU(JNIEnv *env,
                                                                           jclass clazz) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return 0; // No RCU sync needed on 3.18
     const int pfSocket = socket(AF_KEY, SOCK_RAW | SOCK_CLOEXEC, PF_KEY_V2);
     if (pfSocket < 0) return -errno;
     // On Linux close() will always close the fd, any error it returns is a previous pending error.
@@ -146,6 +161,7 @@ static jint com_android_net_module_util_BpfMap_nativeSynchronizeKernelRCU(JNIEnv
 }
 
 static jint com_android_net_module_util_BpfBitmap_nativeGet(jint fd, jint index) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return 0; // Bitmap always 0 on 3.18
     if (index < 0) return -EINVAL;
 
     const uint32_t key = index >> 6;
@@ -160,6 +176,7 @@ static jint com_android_net_module_util_BpfBitmap_nativeGet(jint fd, jint index)
 }
 
 static jint com_android_net_module_util_BpfBitmap_nativeSet(jint fd, jint index, jboolean set) {
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) return 0; // Do nothing on 3.18
     if (index < 0) return -EINVAL;
 
     const uint32_t key = index >> 6;

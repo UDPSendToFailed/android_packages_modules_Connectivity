@@ -30,7 +30,7 @@ namespace bpf {
 
 static inline unsigned uncachedKernelVersion() {
     struct utsname buf;
-    if (uname(&buf)) abort();
+    if (uname(&buf)) return KVER(3, 18, 0); // Don't abort
 
     unsigned kver_major = 0;
     unsigned kver_minor = 0;
@@ -38,8 +38,10 @@ static inline unsigned uncachedKernelVersion() {
     char kver_override[PROP_VALUE_MAX];
     int kver_override_len = __system_property_get("ro.bpf.kver_override", kver_override);
     if (sscanf(kver_override_len > 0 ? kver_override : buf.release, "%u.%u.%u",
-               &kver_major, &kver_minor, &kver_sub) < 2) abort();
-    return KVER(kver_major, kver_minor, kver_sub);
+               &kver_major, &kver_minor, &kver_sub) < 2) {
+        return KVER(3, 18, 0); // Don't abort
+    }
+    return KVER(kver_major, kver_minor, kver_sub); // Return ACTUAL 3.18
 }
 
 static const unsigned kernelVer = uncachedKernelVersion();
@@ -87,8 +89,8 @@ static constexpr unsigned minSupportedKernelVer =
 
 static inline bool isAtLeastKernelVersion(unsigned major, unsigned minor, unsigned sub = 0) {
     unsigned k = KVER(major, minor, sub);
-    if (k <= minSupportedKernelVer) return true;
-    return kernelVer >= k;
+    // if (k <= minSupportedKernelVer) return true; 
+    return kernelVer >= k; 
 }
 
 static inline bool isKernelVersion(unsigned major, unsigned minor) {

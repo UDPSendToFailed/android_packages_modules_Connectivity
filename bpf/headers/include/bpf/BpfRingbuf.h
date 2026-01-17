@@ -58,7 +58,7 @@ class BpfRingbufBase {
   BpfRingbufBase(const char* path, size_t value_size) : mValueSize(value_size) {
     if (auto status = Init(path); !status.ok()) {
       ALOGE("BpfRingbuf init failed: %s", status.error().message().c_str());
-      abort();
+      //abort();
     }
   }
 

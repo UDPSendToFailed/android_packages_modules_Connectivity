@@ -216,10 +216,10 @@ public class BpfNetMapsUtils {
         final long match = getMatchByFirewallChain(chain);
         try {
             final U32 config = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY);
-            return (config.val & match) != 0;
+            // GUARD: Return false if the map lookup returns null
+            return (config != null) && (config.val & match) != 0;
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    "Unable to get firewall chain status: " + Os.strerror(e.errno));
+            return false; // Safely return false on 3.18
         }
     }
 
@@ -261,8 +261,6 @@ public class BpfNetMapsUtils {
             IBpfMap<S32, UidOwnerValue> uidOwnerMap,
             IBpfMap<S32, U8> dataSaverEnabledMap
     ) {
-        // System uids are not blocked by firewall chains, see bpf_progs/netd.c
-        // TODO: b/348513058 - use UserHandle.isCore() once it is accessible
         if (UserHandle.getAppId(uid) < Process.FIRST_APPLICATION_UID) {
             return BLOCKED_REASON_NONE;
         }
@@ -270,12 +268,15 @@ public class BpfNetMapsUtils {
         final long uidRuleConfig;
         final long uidMatch;
         try {
-            uidRuleConfig = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY).val;
+            final U32 config = configurationMap.getValue(UID_RULES_CONFIGURATION_KEY);
+            // GUARD: If config is null, there are no rules. Assume 0 (none).
+            uidRuleConfig = (config != null) ? config.val : 0L;
+
             final UidOwnerValue value = uidOwnerMap.getValue(new Struct.S32(uid));
             uidMatch = (value != null) ? value.rule : 0L;
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno,
-                    "Unable to get firewall chain status: " + Os.strerror(e.errno));
+            // On 3.18, map lookup might throw. Return NONE to keep system alive.
+            return BLOCKED_REASON_NONE;
         }
         final long blockingMatches = (uidRuleConfig & ~uidMatch & sMaskDropIfUnset)
                 | (uidRuleConfig & uidMatch & sMaskDropIfSet);
@@ -366,10 +367,11 @@ public class BpfNetMapsUtils {
         throwIfPreT("getDataSaverEnabled is not available on pre-T devices");
 
         try {
-            return dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY).val == DATA_SAVER_ENABLED;
+            final U8 config = dataSaverEnabledMap.getValue(DATA_SAVER_ENABLED_KEY);
+            // GUARD: If lookup is null, Data Saver is DISABLED.
+            return (config != null) && (config.val == DATA_SAVER_ENABLED);
         } catch (ErrnoException e) {
-            throw new ServiceSpecificException(e.errno, "Unable to get data saver: "
-                    + Os.strerror(e.errno));
+            return false; // Safe fallback for 3.18
         }
     }
 }

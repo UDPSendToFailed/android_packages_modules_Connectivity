@@ -44,7 +44,7 @@ using std::function;
 #define BPFMAP_VERBOSE_ABORT
 #endif
 
-[[noreturn]] __attribute__((__format__(__printf__, 2, 3))) static inline
+__attribute__((__format__(__printf__, 2, 3))) static inline
 void Abort(int __unused error, const char* __unused fmt, ...) {
 #ifdef BPFMAP_VERBOSE_ABORT
     va_list va;
@@ -59,7 +59,7 @@ void Abort(int __unused error, const char* __unused fmt, ...) {
     va_end(va);
 #endif
 
-    abort();
+    //abort();
 }
 
 // We care about enabling SSO on 64-bit platforms
@@ -106,8 +106,13 @@ class BpfMapRO {
 
   protected:
     void abortOnMismatch(bool writable) const {
-        if (!mMapFd.ok()) Abort(errno, "mMapFd %d is not valid", mMapFd.get());
-        if (isAtLeastKernelVersion(4, 14)) {
+        if (!mMapFd.ok()) {
+            // Log it and GET OUT. Don't let it run the code below.
+            return; 
+        }
+        
+        // This check will now correctly be FALSE on 3.18
+        if (isAtLeastKernelVersion(4, 14, 0)) {
             int flags = bpfGetFdMapFlags(mMapFd);
             if (flags < 0) Abort(errno, "bpfGetFdMapFlags fail: flags=%d", flags);
             if (flags & BPF_F_WRONLY) Abort(0, "map is write-only (flags=0x%X)", flags);

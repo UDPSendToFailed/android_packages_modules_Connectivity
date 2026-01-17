@@ -36,30 +36,29 @@ namespace android {
 namespace bpf {
 
 static inline int get_api_level_full() {
-    // This fetches/parses 'ro.build.version.sdk' system property.
     const int api_level = android_get_device_api_level();
-    // Before Baklava/25Q2 there is no 'sdk_full'
-    if (api_level < 36) return api_level * 100;  // 3x -> 3x00
+    if (api_level < 36) return api_level * 100;
 
-    // Fetch and parse the 'sdk_full' system property.
     char value[92] = {};
-    if (__system_property_get("ro.build.version.sdk_full", value) < 1) abort();
+    if (__system_property_get("ro.build.version.sdk_full", value) < 1) return api_level * 100;
+    
     int major, minor;
-    if (sscanf(value, "%d.%d", &major, &minor) != 2) abort();
-    if (major < 36 || minor < 0 || minor > 9) abort();
-    const int api_level_full = major * 100 + minor * 10;  // 3x.y -> 3xy0
+    if (sscanf(value, "%d.%d", &major, &minor) != 2) return api_level * 100;
 
-    // Fetch and parse our platform provided .rc file - this provides quarterly info as well
     FILE * f = fopen("/system/etc/init/netbpfload.rc", "re");
-    if (!f) abort();
-    int y, q, a, b, c;
-    if (fscanf(f, "# %d %d %d %d %d #", &y, &q, &a, &b, &c) != 5) abort();
-    if (a < 36 || b < 0 || b > 9 || c < 0 || c > 4) abort();
-    fclose(f);
-    const int api_level_fuller = a * 100 + b * 10 + c * 2;  // 3x.y.z -> 3xy[2z]
+    if (!f) return major * 100 + minor * 10; 
 
+    int y, q, a, b, c;
+    if (fscanf(f, "# %d %d %d %d %d #", &y, &q, &a, &b, &c) != 5) {
+        fclose(f);
+        return major * 100 + minor * 10;
+    }
+    fclose(f);
+
+    // Don't return here! Let it reach the unreleased/codename check below
+    const int api_level_fuller = a * 100 + b * 10 + c * 2;
     const bool unreleased = (base::GetProperty("ro.build.version.codename", "REL") != "REL");
-    return std::max(api_level_fuller, api_level_full) + unreleased;
+    return std::max(api_level_fuller, major * 100 + minor * 10) + unreleased;
 }
 
 const int api_level_full = get_api_level_full();

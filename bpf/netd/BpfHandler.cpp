@@ -83,7 +83,8 @@ static Status initPrograms(const char* cg2_path) {
 
     // S requires eBPF support which was only added in 4.9, so this should be satisfied.
     if (!isAtLeastKernelVersion(4, 9)) {
-        return Status("kernel version < 4.9.0 is unsupported");
+        ALOGW("Legacy kernel detected (3.18). Skipping BPF program initialization.");
+        return netdutils::status::ok;
     }
 
     // U bumps the kernel requirement up to 4.14
@@ -268,7 +269,7 @@ Status BpfHandler::init(const char* cg2_path) {
     // ...unless someone changed 'exec_start bpfloader' to 'start bpfloader'
     // in the rc file.
     //
-    if (!isAtLeast25Q2) waitForBpf();
+    if (!isAtLeast25Q2 && isAtLeastKernelVersion(4, 9)) waitForBpf();
 
     RETURN_IF_NOT_OK(initPrograms(cg2_path));
     RETURN_IF_NOT_OK(initMaps());
@@ -318,6 +319,7 @@ static void mapLockTest(void) {
 }
 
 Status BpfHandler::initMaps() {
+    if (!isAtLeastKernelVersion(4, 9)) return netdutils::status::ok;
     // bpfLock() requires bpfGetFdMapId which is only available on 4.14+ kernels.
     if (isAtLeastKernelVersion(4, 14)) {
         mapLockTest();

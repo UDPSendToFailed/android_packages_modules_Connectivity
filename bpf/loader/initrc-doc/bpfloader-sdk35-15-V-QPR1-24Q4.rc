@@ -1,5 +1,1 @@
-service bpfloader /system/bin/false
-    user root
-    oneshot
-    reboot_on_failure reboot,netbpfload-missing
-    updatable
+# We don't need this on 3.18

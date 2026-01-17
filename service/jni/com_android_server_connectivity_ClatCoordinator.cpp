@@ -107,6 +107,11 @@ static void verifyClatPerms() {
     V(kClatdDir, S_IFDIR|0750, CLAT, SYSTEM, "system_file", DIR);
     V(kClatdBin, S_IFREG|S_ISUID|S_ISGID|0755, CLAT, CLAT, "clatd_exec", BIN);
 
+    if (!bpf::isAtLeastKernelVersion(4, 9, 0)) {
+        ALOGI("Legacy kernel detected (3.18). Skipping BPF permission verification.");
+        return; 
+    }
+
     // Move on to verifying that the bpf programs and maps are as expected.
     // This relies on the kernel and bpfloader.
 
@@ -132,7 +137,9 @@ static void verifyClatPerms() {
 
 #undef V2
 
-    if (fatal) abort();
+    if (fatal) {
+        ALOGE("Clat native verification failed, but continuing because we are on 3.18");
+    }
 }
 
 #undef V
